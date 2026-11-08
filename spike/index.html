@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FIRS Spike Test</title>
+<style>
+  :root { --navy:#16324F; --blue:#2563EB; --bg:#F4F6F9; --line:#D5DCE4; --ok:#16A34A; --bad:#DC2626; --muted:#6B7280; }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:14px; background:var(--bg); color:#1F2937;
+         font:15px/1.45 "Segoe UI",Roboto,Arial,sans-serif; }
+  .wrap { max-width:760px; margin:0 auto; }
+  h1 { margin:0; font-size:20px; }
+  .head { background:var(--navy); color:#fff; padding:16px 18px; border-radius:12px; margin-bottom:14px; border-left:6px solid var(--blue); }
+  .head small { opacity:.8; }
+  .card { background:#fff; border:1px solid #E5E9EF; border-radius:12px; padding:16px; margin-bottom:14px; }
+  .card h2 { margin:0 0 4px; font-size:16px; color:var(--navy); }
+  .hint { color:var(--muted); font-size:13px; margin:0 0 10px; }
+  button { font:inherit; font-weight:600; border:0; border-radius:8px; padding:11px 14px; cursor:pointer;
+           background:var(--blue); color:#fff; margin:4px 6px 4px 0; }
+  button.alt { background:#fff; color:var(--blue); border:1.5px solid var(--blue); }
+  button:disabled { opacity:.55; cursor:not-allowed; }
+  input { width:100%; padding:10px; border:1px solid var(--line); border-radius:8px; font:inherit; margin:6px 0; }
+  pre { background:#0F1B2A; color:#D6E4F5; padding:10px; border-radius:8px; overflow:auto; max-height:260px;
+        font-size:12px; white-space:pre-wrap; word-break:break-word; margin:8px 0 0; }
+  .badge { display:inline-block; padding:2px 9px; border-radius:20px; font-size:12px; font-weight:700; }
+  .pending { background:#EEF1F5; color:var(--muted); }
+  .pass { background:#E8F7EE; color:#0F6B30; }
+  .fail { background:#FDECEC; color:#A11B1B; }
+  .run  { background:#EFF4FF; color:var(--blue); }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  td, th { text-align:left; padding:6px 4px; border-bottom:1px solid #EEF1F5; vertical-align:top; }
+  .env { font-size:12px; color:var(--muted); word-break:break-all; }
+  .warn { background:#FFF7E6; border:1px solid #F5D9A0; color:#7A4B00; padding:10px 12px; border-radius:8px; margin-bottom:12px; }
+  textarea { width:100%; height:150px; font:12px/1.4 monospace; border:1px solid var(--line); border-radius:8px; padding:8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="head">
+    <h1>FIRS Spike Test</h1>
+    <small>GitHub Pages &rarr; Apps Script &rarr; Google Sheets &middot; dummy data only &middot; no login</small>
+  </div>
+
+  <div id="configWarn" class="warn" hidden>
+    <b>Not configured.</b> Open <code>js/api.js</code> and set <code>BASE_URL</code> to your Apps Script Web App URL (ending in <code>/exec</code>).
+  </div>
+
+  <div class="card">
+    <h2>Environment</h2>
+    <div class="env" id="env"></div>
+  </div>
+
+  <div class="card">
+    <h2>Test 0 &mdash; Ping <span id="b_ping" class="badge pending">not run</span></h2>
+    <p class="hint">Connectivity + Sheets access. Expect <code>pong</code> and the test spreadsheet name.</p>
+    <button id="btnPing">Run ping</button>
+    <pre id="o_ping" hidden></pre>
+  </div>
+
+  <div class="card">
+    <h2>Test A &mdash; GET master data <span id="b_A" class="badge pending">not run</span></h2>
+    <p class="hint">GET <code>?action=master</code>. Expect employees, areas, equipment, issues.</p>
+    <button id="btnA">Load master data</button>
+    <pre id="o_A" hidden></pre>
+  </div>
+
+  <div class="card">
+    <h2>Test B &mdash; POST report</h2>
+    <p class="hint">
+      B1 <span id="b_B1" class="badge pending">not run</span>
+      B2 <span id="b_B2" class="badge pending">not run</span>
+      B3 <span id="b_B3" class="badge pending">not run</span><br>
+      B1 sends a NEW dummy report (2 equipment rows). B2 re-sends the SAME report ID (expect <code>duplicate: true</code>, no new rows).
+      B3 sends an invalid report (expect a <code>VALIDATION</code> error from the server).
+    </p>
+    <button id="btnB1">B1: Send new report</button>
+    <button id="btnB2" class="alt" disabled>B2: Re-send same report</button>
+    <button id="btnB3" class="alt">B3: Send invalid report</button>
+    <pre id="o_B" hidden></pre>
+  </div>
+
+  <div class="card">
+    <h2>Test C &mdash; Verify stored data <span id="b_C" class="badge pending">not run</span></h2>
+    <p class="hint">Reads the report back from the sheet. ALSO open the test spreadsheet and confirm the rows manually (SPIKE_HEADER / SPIKE_DETAIL).</p>
+    <input id="lookupId" placeholder="Report ID (auto-filled after B1)" autocomplete="off">
+    <button id="btnC">Look up report</button>
+    <pre id="o_C" hidden></pre>
+  </div>
+
+  <div class="card">
+    <h2>Summary</h2>
+    <table>
+      <tr><th>Test</th><th>Status</th><th>Detail</th></tr>
+      <tr><td>0 Ping</td><td><span id="s_ping" class="badge pending">not run</span></td><td id="d_ping"></td></tr>
+      <tr><td>A GET master</td><td><span id="s_A" class="badge pending">not run</span></td><td id="d_A"></td></tr>
+      <tr><td>B1 POST new</td><td><span id="s_B1" class="badge pending">not run</span></td><td id="d_B1"></td></tr>
+      <tr><td>B2 duplicate</td><td><span id="s_B2" class="badge pending">not run</span></td><td id="d_B2"></td></tr>
+      <tr><td>B3 invalid</td><td><span id="s_B3" class="badge pending">not run</span></td><td id="d_B3"></td></tr>
+      <tr><td>C read-back</td><td><span id="s_C" class="badge pending">not run</span></td><td id="d_C"></td></tr>
+    </table>
+    <button id="btnCopy" class="alt">Build result text to copy</button>
+    <textarea id="resultText" hidden readonly></textarea>
+  </div>
+
+</div>
+
+<script src="js/api.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  const $ = id => document.getElementById(id);
+  const results = {};     // key -> { pass, detail }
+  let master = null;
+  let lastReport = null;
+
+  /* ---------- helpers ---------- */
+
+  function setBadge(el, state, text) {
+    el.className = 'badge ' + state;
+    el.textContent = text;
+  }
+
+  function show(outId, obj) {
+    const el = $(outId);
+    el.hidden = false;
+    el.textContent = typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2);
+  }
+
+  function describe(r) {
+    return r.ms + ' ms | HTTP ' + (r.httpStatus || '-') +
+           ' | redirected: ' + r.redirected + ' | final host: ' + (r.finalHost || '-');
+  }
+
+  function record(key, pass, detail) {
+    results[key] = { pass: pass, detail: detail };
+    setBadge($('s_' + key), pass ? 'pass' : 'fail', pass ? 'PASS' : 'FAIL');
+    $('d_' + key).textContent = detail;
+    if ($('b_' + key)) setBadge($('b_' + key), pass ? 'pass' : 'fail', pass ? 'PASS' : 'FAIL');
+  }
+
+  function running(key) {
+    if ($('b_' + key)) setBadge($('b_' + key), 'run', 'running...');
+  }
+
+  function newReportId() {
+    const rnd = Math.random().toString(36).slice(2, 6).toUpperCase();
+    return 'SPIKE-' + Date.now().toString(36).toUpperCase() + '-' + rnd;
+  }
+
+  function errText(r) {
+    return r.error.code + ': ' + r.error.message + ' (' + r.ms + ' ms)';
+  }
+
+  /* ---------- build dummy report from master data ---------- */
+
+  function buildReport() {
+    const area = master.areas[0];
+    const eqs = master.equipment.filter(e => e.area === area);
+    const pick = function (eq) {
+      const issue = master.issues.filter(i => i.type === eq.type)[0];
+      return { eq: eq, part: issue.part, issue: issue.issue };
+    };
+    const a = pick(eqs[0]);
+    const b = pick(eqs[1] || eqs[0]);
+
+    return {
+      reportId: newReportId(),
+      reporter: master.employees[0],
+      area: area,
+      equipment: [
+        { tag: a.eq.tag, part: a.part, issue: a.issue, reportType: 'Finding',
+          replacementStatus: '', oldSerial: '', newSerial: '', remark: 'Spike test finding' },
+        { tag: b.eq.tag, part: b.part, issue: b.issue, reportType: 'Both',
+          replacementStatus: 'Pending', oldSerial: '00123', newSerial: '00456', remark: '=1+1 (must stay plain text)' }
+      ]
+    };
+  }
+
+  async function ensureMaster() {
+    if (master) return true;
+    await testA();
+    return !!master;
+  }
+
+  /* ---------- tests ---------- */
+
+  async function testPing() {
+    running('ping'); $('btnPing').disabled = true;
+    const r = await FIRS_API.ping();
+    show('o_ping', r.ok ? r : { error: r.error, info: describe(r) });
+    if (r.ok) {
+      record('ping', r.data && r.data.message === 'pong',
+        describe(r) + ' | sheet: ' + r.data.spreadsheetName + ' | stored reports: ' + r.data.storedReports);
+    } else {
+      record('ping', false, errText(r));
+    }
+    $('btnPing').disabled = false;
+  }
+
+  async function testA() {
+    running('A'); $('btnA').disabled = true;
+    const r = await FIRS_API.getMasterData();
+    if (r.ok && r.data && r.data.master) {
+      const m = r.data.master;
+      const okShape = m.employees.length > 0 && m.areas.length > 0 && m.equipment.length > 0 && m.issues.length > 0;
+      if (okShape) master = m;
+      show('o_A', r.data);
+      record('A', okShape, describe(r) + ' | employees ' + m.employees.length + ', areas ' + m.areas.length +
+        ', equipment ' + m.equipment.length + ', issues ' + m.issues.length);
+    } else {
+      show('o_A', { error: r.error, info: describe(r) });
+      record('A', false, r.error ? errText(r) : 'Unexpected response shape');
+    }
+    $('btnA').disabled = false;
+  }
+
+  async function testB1() {
+    if (!(await ensureMaster())) { record('B1', false, 'Master data not available (run Test A first).'); return; }
+    running('B1'); $('btnB1').disabled = true;
+
+    lastReport = buildReport();
+    const r = await FIRS_API.submitReport(lastReport);
+    show('o_B', r.ok ? { request: lastReport, response: r.data, info: describe(r) }
+                     : { request: lastReport, error: r.error, info: describe(r) });
+
+    if (r.ok) {
+      const pass = r.data.duplicate === false && r.data.itemCount === lastReport.equipment.length;
+      record('B1', pass, describe(r) + ' | ' + r.data.reportId + ' | rows: ' + r.data.itemCount);
+      $('lookupId').value = lastReport.reportId;
+      $('btnB2').disabled = false;
+    } else {
+      record('B1', false, errText(r));
+    }
+    $('btnB1').disabled = false;
+  }
+
+  async function testB2() {
+    if (!lastReport) return;
+    running('B2'); $('btnB2').disabled = true;
+    const r = await FIRS_API.submitReport(lastReport);   // same reportId
+    show('o_B', r.ok ? { response: r.data, info: describe(r) } : { error: r.error, info: describe(r) });
+    if (r.ok) {
+      record('B2', r.data.duplicate === true, describe(r) + ' | duplicate: ' + r.data.duplicate);
+    } else {
+      record('B2', false, errText(r));
+    }
+    $('btnB2').disabled = false;
+  }
+
+  async function testB3() {
+    if (!(await ensureMaster())) { record('B3', false, 'Master data not available (run Test A first).'); return; }
+    running('B3'); $('btnB3').disabled = true;
+    const bad = buildReport();
+    bad.reporter = 'Not A Registered Person';
+    const r = await FIRS_API.submitReport(bad);
+    show('o_B', r.ok ? { unexpectedSuccess: r.data } : { error: r.error, info: describe(r) });
+    // PASS only if the SERVER rejected it (proves the request arrived and validation ran).
+    record('B3', !r.ok && r.error.code === 'VALIDATION',
+      r.ok ? 'Server accepted an invalid report!' : describe(r) + ' | ' + r.error.code + ': ' + r.error.message);
+    $('btnB3').disabled = false;
+  }
+
+  async function testC() {
+    const id = $('lookupId').value.trim();
+    if (!id) { record('C', false, 'Enter a report ID (run B1 first).'); return; }
+    running('C'); $('btnC').disabled = true;
+    const r = await FIRS_API.lookupReport(id);
+    show('o_C', r.ok ? r.data : { error: r.error, info: describe(r) });
+    if (r.ok) {
+      const expected = lastReport && lastReport.reportId === id ? lastReport.equipment.length : null;
+      const pass = r.data.found === true && (expected === null || r.data.details.length === expected);
+      record('C', pass, describe(r) + ' | found: ' + r.data.found +
+        (r.data.found ? ' | detail rows: ' + r.data.details.length : ''));
+    } else {
+      record('C', false, errText(r));
+    }
+    $('btnC').disabled = false;
+  }
+
+  /* ---------- result text ---------- */
+
+  function buildResultText() {
+    const lines = [
+      'FIRS SPIKE TEST RESULT',
+      'Time: ' + new Date().toString(),
+      'Page: ' + location.href,
+      'User agent: ' + navigator.userAgent,
+      'Online: ' + navigator.onLine,
+      ''
+    ];
+    ['ping', 'A', 'B1', 'B2', 'B3', 'C'].forEach(function (k) {
+      const r = results[k];
+      lines.push(k + ': ' + (r ? (r.pass ? 'PASS' : 'FAIL') + ' - ' + r.detail : 'not run'));
+    });
+    return lines.join('\n');
+  }
+
+  function copyResult() {
+    const ta = $('resultText');
+    ta.hidden = false;
+    ta.value = buildResultText();
+    ta.focus();
+    ta.select();
+    try { if (navigator.clipboard) navigator.clipboard.writeText(ta.value); } catch (e) { /* manual copy */ }
+  }
+
+  /* ---------- init ---------- */
+
+  function init() {
+    $('env').textContent =
+      'Page: ' + location.href + ' | Online: ' + navigator.onLine +
+      ' | Time zone: ' + Intl.DateTimeFormat().resolvedOptions().timeZone +
+      ' | Backend: ' + (FIRS_API.isConfigured() ? FIRS_API.getBaseUrl() : 'NOT CONFIGURED') +
+      ' | UA: ' + navigator.userAgent;
+
+    if (!FIRS_API.isConfigured()) $('configWarn').hidden = false;
+
+    $('btnPing').onclick = testPing;
+    $('btnA').onclick = testA;
+    $('btnB1').onclick = testB1;
+    $('btnB2').onclick = testB2;
+    $('btnB3').onclick = testB3;
+    $('btnC').onclick = testC;
+    $('btnCopy').onclick = copyResult;
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
