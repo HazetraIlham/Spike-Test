@@ -16,7 +16,7 @@
 
   const CONFIG = {
     // >>> PASTE YOUR WEB APP URL HERE (must end with /exec) <<<
-    BASE_URL: 'PASTE_YOUR_WEB_APP_EXEC_URL_HERE',
+    BASE_URL: 'https://script.google.com/macros/s/AKfycbzcqvEHSw6m2qlWtkUIzGwgfNyWRApHKUi17e1rNjD9g_L6zfKQgxtSxSVQCMyTHwm-/exec',
     TIMEOUT_MS: 30000
   };
 
